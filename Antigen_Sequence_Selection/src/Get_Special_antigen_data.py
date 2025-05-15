@@ -58,6 +58,23 @@ def get_fasta_uniport(query: str, output_fasta: str):
         click.echo(f"✅ 成功下载 {len(response.text.split('>'))-1} 条FASTA序列")
     except Exception as e:
         click.echo(f"❌ 下载失败: {str(e)}", err=True)
+        
+def get_fasta_uniport2(query: str, output_fasta: str):
+    """获取FASTA序列"""
+    click.echo(f"⚡ 正在执行FASTA下载任务...")
+    click.echo(f"📝 检索式: {query}")
+    click.echo(f"💾 输出文件: {output_fasta}")
+    url = query.replace("compressed=true", "compressed=false")
+    
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        response.encoding = 'utf-8'
+        with open(output_fasta, "w") as f:
+            f.write(response.text)
+        click.echo(f"✅ 成功下载 {len(response.text.split('>'))-1} 条FASTA序列")
+    except Exception as e:
+        click.echo(f"❌ 下载失败: {str(e)}", err=True)
 
 def filter_metadata(input_tsv_url: str, filter_pattern: str, output_tsv: str, filted_output_tsv: str):
     """过滤元数据"""
@@ -111,6 +128,14 @@ def fetch_fasta(query, output_fasta):
 def filter_data(input_tsv_url, filter_pattern, output_tsv, filted_output_tsv):
     """过滤蛋白质元数据"""
     filter_metadata(input_tsv_url, filter_pattern, output_tsv, filted_output_tsv)
+
+@cli.command()
+@click.option("--query", required=True, help="UniProt检索式")
+@click.option("--output-fasta", default="skin_secreted_proteins.fasta", 
+             help="FASTA输出文件名")
+def fetch_fasta2(query, output_fasta):
+    """下载FASTA序列"""
+    get_fasta_uniport2(query, output_fasta)
 
 if __name__ == "__main__":
     cli()

@@ -33,3 +33,18 @@ python Antigen_Sequence_Selection/src/Get_Special_antigen_data.py filter-data \
     --filted_output_tsv "Antigen_Sequence_Selection/antigen_sequnce/Blood/filtered_proteins_meta.tsv" \
     >> Antigen_Sequence_Selection/src/run.log 2>&1 &
 
+# Acquire antigen sequence according to THE HUMAN PROTEIN ATLAS
+nohup \ 
+python Antigen_Sequence_Selection/src/Get_Special_antigen_data.py fetch-fasta2 \
+    --query "https://rest.uniprot.org/idmapping/uniprotkb/results/stream/lRyWnJkcCk?compressed=true&format=fasta&query=%28model_organism%3A9606%29" \
+    --output-fasta "Antigen_Sequence_Selection/antigen_sequnce/Skin_atlas/antigen_proteins.fasta" \
+    >> Antigen_Sequence_Selection/src/run.log 2>&1 &
+
+# Acquire the metadata of antigen sequence according to THE HUMAN PROTEIN ATLAS
+nohup \
+python Antigen_Sequence_Selection/src/Get_Special_antigen_data.py filter-data \
+    --input-tsv_url "https://rest.uniprot.org/idmapping/uniprotkb/results/stream/lRyWnJkcCk?compressed=true&fields=accession%2Creviewed%2Cid%2Cprotein_name%2Cgene_names%2Corganism_name%2Clength%2Ccc_tissue_specificity%2Cft_transmem%2Ccc_subcellular_location&format=tsv&query=%28model_organism%3A9606%29"\
+    --filter-pattern "Secreted|Membrane" \
+    --output-tsv "Antigen_Sequence_Selection/antigen_sequnce/Skin_atlas/proteins_meta.tsv" \
+    --filted_output_tsv "Antigen_Sequence_Selection/antigen_sequnce/Skin_atlas/filtered_proteins_meta.tsv" \
+    >> Antigen_Sequence_Selection/src/run.log 2>&1 &
