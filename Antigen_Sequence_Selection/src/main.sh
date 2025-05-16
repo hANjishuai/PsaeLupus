@@ -48,3 +48,18 @@ python Antigen_Sequence_Selection/src/Get_Special_antigen_data.py filter-data \
     --output-tsv "Antigen_Sequence_Selection/antigen_sequnce/Skin_atlas/proteins_meta.tsv" \
     --filted_output_tsv "Antigen_Sequence_Selection/antigen_sequnce/Skin_atlas/filtered_proteins_meta.tsv" \
     >> Antigen_Sequence_Selection/src/run.log 2>&1 &
+
+# Split the fasta file to 50 chunks
+# 需要处理的子目录列表
+target_dirs=("Blood" "Skin" "Skin_atlas")
+
+for dir in "${target_dirs[@]}"; do
+    input_fasta="${base_dir}/${dir}/antigen_proteins.fasta"
+    output_dir="${base_dir}/${dir}/"
+    
+    nohup python Antigen_Sequence_Selection/src/Get_Special_antigen_data.py split-fasta \
+        --input-fasta "$input_fasta" \
+        --output-dir "$output_dir" \
+        --chunk-size 50 \
+        >> "$log_file" 2>&1 &
+done
