@@ -166,7 +166,7 @@ def process_epitopes(input_fasta: str, min_length: int,
             
                     # 写入结果
                     for s, e in regions:
-                        epitope = seq[s:e].lower()
+                        epitope = seq[s:e].upper()
                         fout.write(f"{record.id}\t{epitope}\n")
                         total_ep += 1
             except Exception as e:

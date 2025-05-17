@@ -77,7 +77,7 @@ log_file="Antigen_Sequence_Selection/antigen_Epitopes_Extraction/run.log"
 
 for dir in "${target_dirs[@]}"; do
     for sub_dir in "${sub_target_dirs[@]}"; do
-        mkdir -p "${base_out_dir}/${dir}/${sub_dir}"  # 自动创建嵌套目录
+        mkdir -p "${base_out_dir}/${dir}/${sub_dir}"  
         input_fasta="${base_dir}/${dir}/${sub_dir}/bepipred3_results/Bcell_epitope_preds.fasta"
         output_dir="${base_out_dir}/${dir}/${sub_dir}/epitopes.tsv"
         (   
