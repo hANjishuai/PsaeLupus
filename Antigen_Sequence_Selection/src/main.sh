@@ -52,7 +52,8 @@ python Antigen_Sequence_Selection/src/Get_Special_antigen_data.py filter-data \
 # Split the fasta file to 50 chunks
 # 需要处理的子目录列表
 target_dirs=("Blood" "Skin" "Skin_atlas")
-
+base_dir="Antigen_Sequence_Selection/antigen_sequnce"
+log_file="Antigen_Sequence_Selection/antigen_sequnce/run.log"
 for dir in "${target_dirs[@]}"; do
     input_fasta="${base_dir}/${dir}/antigen_proteins.fasta"
     output_dir="${base_dir}/${dir}/"
@@ -63,3 +64,38 @@ for dir in "${target_dirs[@]}"; do
         --chunk-size 50 \
         >> "$log_file" 2>&1 &
 done
+
+# Extract the predicted epitopes of the antigen sequence
+# 需要处理的子目录列表
+max_jobs=10  # 并发控制
+background_jobs=0
+target_dirs=("Blood" "Skin" "Skin_atlas")
+sub_target_dirs=(p{1..9})  # 生成 p1 p2 p3 ... p9
+base_dir="Antigen_Sequence_Selection/antigen_Epitopes_Prediction/BepiPred3"
+base_out_dir="Antigen_Sequence_Selection/antigen_Epitopes_Extraction"
+log_file="Antigen_Sequence_Selection/antigen_Epitopes_Extraction/run.log"
+
+for dir in "${target_dirs[@]}"; do
+    for sub_dir in "${sub_target_dirs[@]}"; do
+        mkdir -p "${base_out_dir}/${dir}/${sub_dir}"  # 自动创建嵌套目录
+        input_fasta="${base_dir}/${dir}/${sub_dir}/bepipred3_results/Bcell_epitope_preds.fasta"
+        output_dir="${base_out_dir}/${dir}/${sub_dir}/epitopes.tsv"
+        (   
+            echo "Processing ${base_dir}/${dir}/${sub_dir} at $(date)"
+            cmd_args=(
+                "process-epitopes"
+                "--input-fasta" "${input_fasta}"
+                "--min-length" "5"
+                "--merge-window" "5"
+                "--output-tsv" "${output_dir}"
+            )
+            python "Antigen_Sequence_Selection/src/Get_Process_epitopes.py" "${cmd_args[@]}" 
+        ) >> "$log_file" 2>&1 &
+        ((background_jobs++))
+        if (( background_jobs % max_jobs == 0 )); then
+            wait
+        fi            
+    done
+done
+wait  
+echo "All tasks completed"

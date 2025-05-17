@@ -1,2 +1,4 @@
 *.out
 Antigen_Sequence_Selection/src/*.log
+antigen_Epitopes_Prediction
+antigen_Epitopes_Extraction

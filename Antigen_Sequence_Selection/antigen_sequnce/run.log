@@ -1,0 +1,76 @@
+⚡ 正在执行FASTA下载任务...
+📝 检索式: (reviewed:true) AND (organism_id:9606) AND (cc_tissue_specificity:(skin OR epidermis OR dermis OR hypodermis)) 
+💾 输出文件: Antigen_Sequence_Selection/antigen_sequnce/Skin/antigen_proteins.fasta
+✅ 成功下载 433 条FASTA序列
+Cgene_names%2Corganism_name%2Clength%2Ccc_tissue_specificity%2Ccc_subcellular_location%2Cft_transmem&format=tsv&query=%28%28reviewed%3Atrue%29+AND+%28organism_id%3A9606%29+AND+%28cc_tissue_specificity%3A%28%22skin%22+OR+%22epidermis%22+OR+%22dermis%22+OR+%22hypodermis%22%29%29%29
+📥 输入文件: https://rest.uniprot.org/uniprotkb/stream?compressed=true&fields=accession%2Creviewed%2Cid%2Cprotein_name%2Cgene_names%2Corganism_name%2Clength%2Ccc_tissue_specificity%2Cft_transmem%2Ccc_subcellular_location&format=tsv&query=%28%28reviewed%3Atrue%29+AND+%28organism_id%3A9606%29+AND+%28cc_tissue_specificity%3A%28%22keratinocyte%22+OR+%22melanocyte%22+OR+%22langerhans+cell%22+OR+%22merkel+cell%22+OR+%22fibroblast%22+OR+%22hair+follicle%22+OR+%22sebaceous+gland%22+OR+%22sweat+gland%22+OR+%22mast+cell%22+OR+%22macrophage%22+OR+%22dendritic+cell%22+OR+%22endothelial+cell%22+OR+%22pericyte%22%29%29%29
+🔍 过滤模式: Secreted|Membrane
+📝 检索式: (reviewed:true) AND (organism_id:9606) AND (cc_tissue_specificity:("keratinocyte" OR "melanocyte" OR "langerhans cell" OR "merkel cell" OR "fibroblast" OR "hair follicle" OR "sebaceous gland" OR  "sweat gland" OR "mast cell" OR "macrophage" OR "dendritic cell" OR "endothelial cell" OR "pericyte")) 
+🔍 过滤模式: Secreted|Membrane
+💾 输出文件: Antigen_Sequence_Selection/antigen_sequnce/Skin/proteins_meta.tsv
+💾 输出文件: Antigen_Sequence_Selection/antigen_sequnce/Blood/proteins_meta.tsv
+💾 输出文件: Antigen_Sequence_Selection/antigen_sequnce/Skin/filtered_proteins_meta.tsv
+💾 输出文件: Antigen_Sequence_Selection/antigen_sequnce/Blood/antigen_proteins.fasta
+💾 输出文件: Antigen_Sequence_Selection/antigen_sequnce/Blood/filtered_proteins_meta.tsv
+✅ 成功下载 123 条FASTA序列
+✅ TSV 文件已保存至：Antigen_Sequence_Selection/antigen_sequnce/Skin/proteins_meta.tsv
+✅ 完成过滤: 原始数据 431 条 → 过滤后 125 条
+✅ TSV 文件已保存至：Antigen_Sequence_Selection/antigen_sequnce/Blood/proteins_meta.tsv
+✅ 完成过滤: 原始数据 123 条 → 过滤后 30 条
+⚡ 正在执行FASTA下载任务...
+📝 检索式: https://rest.uniprot.org/idmapping/uniprotkb/results/stream/lRyWnJkcCk?compressed=true&format=fasta&query=%28model_organism%3A9606%29
+💾 输出文件: Antigen_Sequence_Selection/antigen_sequnce/Skin_atlas/antigen_proteins.fasta
+✅ 成功下载 39 条FASTA序列
+⚡ 正在执行FASTA下载任务...
+📝 检索式: %28model_organism%3A9606%29
+💾 输出文件: Antigen_Sequence_Selection/antigen_sequnce/Skin_atlas/antigen_proteins.fasta
+✅ 成功下载 0 条FASTA序列
+⚡ 正在执行FASTA下载任务...
+📝 检索式: https://rest.uniprot.org/idmapping/uniprotkb/results/stream/lRyWnJkcCk?compressed=true&format=fasta&query=%28model_organism%3A9606%29
+💾 输出文件: Antigen_Sequence_Selection/antigen_sequnce/Skin_atlas/antigen_proteins.fasta
+✅ 成功下载 82 条FASTA序列
+
+⚡ 正在执行元数据过滤任务...
+📥 输入文件: https://rest.uniprot.org/idmapping/uniprotkb/results/stream/lRyWnJkcCk?compressed=true&fields=accession%2Creviewed%2Cid%2Cprotein_name%2Cgene_names%2Corganism_name%2Clength%2Ccc_tissue_specificity%2Cft_transmem%2Ccc_subcellular_location&format=tsv&query=%28model_organism%3A9606%29
+🔍 过滤模式: Secreted|Membrane
+💾 输出文件: Antigen_Sequence_Selection/antigen_sequnce/Skin_atlas/proteins_meta.tsv
+💾 输出文件: Antigen_Sequence_Selection/antigen_sequnce/Skin_atlas/filtered_proteins_meta.tsv
+✅ TSV 文件已保存至：Antigen_Sequence_Selection/antigen_sequnce/Skin_atlas/proteins_meta.tsv
+✅ 完成过滤: 原始数据 82 条 → 过滤后 2 条
+
+⚡ 正在执行元数据过滤任务...
+📥 输入文件: https://rest.uniprot.org/idmapping/uniprotkb/results/stream/lRyWnJkcCk?compressed=true&fields=accession%2Creviewed%2Cid%2Cprotein_name%2Cgene_names%2Corganism_name%2Clength%2Ccc_tissue_specificity%2Cft_transmem%2Ccc_subcellular_location&format=tsv&query=%28model_organism%3A9606%29
+🔍 过滤模式: Secreted|Membrane
+💾 输出文件: Antigen_Sequence_Selection/antigen_sequnce/Skin_atlas/proteins_meta.tsv
+💾 输出文件: Antigen_Sequence_Selection/antigen_sequnce/Skin_atlas/filtered_proteins_meta.tsv
+✅ TSV 文件已保存至：Antigen_Sequence_Selection/antigen_sequnce/Skin_atlas/proteins_meta.tsv
+✅ 完成过滤: 原始数据 82 条 → 过滤后 2 条
+
+🔍 开始处理: Antigen_Sequence_Selection/antigen_sequnce/Blood/antigen_proteins.fasta
+
+🔍 开始处理: Antigen_Sequence_Selection/antigen_sequnce/Skin/antigen_proteins.fasta
+
+🔍 开始处理: Antigen_Sequence_Selection/antigen_sequnce/Skin_atlas/antigen_proteins.fasta
+📊 总序列数: 82
+⚡ 开始分割（每 50 条/文件）...
+✂️ 生成分块文件: Antigen_Sequence_Selection/antigen_sequnce/Skin_atlas/antigen_proteins_part1.fasta (包含 50 条序列)
+📊 总序列数: 123
+⚡ 开始分割（每 50 条/文件）...
+✂️ 生成分块文件: Antigen_Sequence_Selection/antigen_sequnce/Skin_atlas/antigen_proteins_part2.fasta (包含 32 条序列)
+🎉 分割完成！共生成 2 个文件
+✂️ 生成分块文件: Antigen_Sequence_Selection/antigen_sequnce/Blood/antigen_proteins_part1.fasta (包含 50 条序列)
+✂️ 生成分块文件: Antigen_Sequence_Selection/antigen_sequnce/Blood/antigen_proteins_part2.fasta (包含 50 条序列)
+✂️ 生成分块文件: Antigen_Sequence_Selection/antigen_sequnce/Blood/antigen_proteins_part3.fasta (包含 23 条序列)
+🎉 分割完成！共生成 3 个文件
+📊 总序列数: 431
+⚡ 开始分割（每 50 条/文件）...
+✂️ 生成分块文件: Antigen_Sequence_Selection/antigen_sequnce/Skin/antigen_proteins_part1.fasta (包含 50 条序列)
+✂️ 生成分块文件: Antigen_Sequence_Selection/antigen_sequnce/Skin/antigen_proteins_part2.fasta (包含 50 条序列)
+✂️ 生成分块文件: Antigen_Sequence_Selection/antigen_sequnce/Skin/antigen_proteins_part3.fasta (包含 50 条序列)
+✂️ 生成分块文件: Antigen_Sequence_Selection/antigen_sequnce/Skin/antigen_proteins_part4.fasta (包含 50 条序列)
+✂️ 生成分块文件: Antigen_Sequence_Selection/antigen_sequnce/Skin/antigen_proteins_part5.fasta (包含 50 条序列)
+✂️ 生成分块文件: Antigen_Sequence_Selection/antigen_sequnce/Skin/antigen_proteins_part6.fasta (包含 50 条序列)
+✂️ 生成分块文件: Antigen_Sequence_Selection/antigen_sequnce/Skin/antigen_proteins_part7.fasta (包含 50 条序列)
+✂️ 生成分块文件: Antigen_Sequence_Selection/antigen_sequnce/Skin/antigen_proteins_part8.fasta (包含 50 条序列)
+✂️ 生成分块文件: Antigen_Sequence_Selection/antigen_sequnce/Skin/antigen_proteins_part9.fasta (包含 31 条序列)
+🎉 分割完成！共生成 9 个文件
