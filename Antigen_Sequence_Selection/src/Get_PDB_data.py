@@ -28,21 +28,27 @@ python pdb_fetcher.py fetch-pdb-ids
   --delay 0.5               # 增加请求间隔
   --output-tsv strict_results.tsv
 """
-
 import csv
 import time
+import functools  # 新增导入
 from typing import List, Tuple
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from functools import lru_cache, partial
+from functools import partial, lru_cache  # 新增导入
 import click
 from tqdm import tqdm
 from rcsbapi.search import search_attributes as attrs
+
+# ================= CLI命令组 =================
+@click.group()
+def cli():
+    """PDB B细胞表位处理工具集"""
+    pass
 
 # ================= 配置装饰器 =================
 def retry(max_retries=3, delay=1):
     """请求重试装饰器"""
     def decorator(func):
-        @functools.wraps(func)
+        @functools.wraps(func)  # 需要functools模块
         def wrapper(*args, **kwargs):
             for attempt in range(max_retries):
                 try:
@@ -57,8 +63,8 @@ def retry(max_retries=3, delay=1):
 
 # ================= 核心算法 =================
 @retry(max_retries=3, delay=1)
-@lru_cache(maxsize=1024)  # 缓存重复查询
-def fetch_pdb_ids(uniprot_id: str) -> List[str]:
+@lru_cache(maxsize=1024)
+def fetch_pdb_ids_cache(uniprot_id: str) -> List[str]:
     """带缓存的PDB ID查询"""
     query = attrs.rcsb_polymer_entity_container_identifiers.reference_sequence_identifiers.database_accession == uniprot_id
     return list(query())
@@ -72,7 +78,7 @@ def process_batch(records: List[dict], id_col: str, pbar) -> List[Tuple[str, str
             continue
         
         try:
-            pdb_list = fetch_pdb_ids(uid)
+            pdb_list = fetch_pdb_ids_cache(uid)
             results.extend([(uid, pdb) for pdb in pdb_list])
         except Exception as e:
             pbar.write(f"⚠️ 查询失败: {uid} ({str(e)})")
@@ -84,7 +90,7 @@ def process_batch(records: List[dict], id_col: str, pbar) -> List[Tuple[str, str
     return results
 
 # ================= CLI命令实现 =================
-@click.command()
+@cli.command()
 @click.option("--input-tsv", required=True, type=click.Path(exists=True),
              help="输入TSV文件路径（须包含表头）")
 @click.option("--id-column", required=True, 
@@ -95,8 +101,7 @@ def process_batch(records: List[dict], id_col: str, pbar) -> List[Tuple[str, str
              help="并发查询线程数")
 @click.option("--delay", default=0.2, show_default=True,
              help="请求间隔时间（秒）")
-@click.pass_context
-def fetch_pdb_ids(ctx, input_tsv: str, id_column: str, 
+def fetch_pdb_ids(input_tsv: str, id_column: str, 
                  output_tsv: str, threads: int, delay: float):
     """
     UniProt到PDB的批量映射查询
@@ -121,7 +126,8 @@ def fetch_pdb_ids(ctx, input_tsv: str, id_column: str,
             unique_ids = list({row[id_column].strip() for row in reader if row[id_column].strip()})
             stats['total'] = len(unique_ids)
     except Exception as e:
-        ctx.fail(f"❌ 文件读取失败: {str(e)}")
+        click.echo(f"❌ 文件读取失败: {str(e)}")
+        return
 
     # 准备进度条
     with tqdm(
@@ -167,7 +173,8 @@ def fetch_pdb_ids(ctx, input_tsv: str, id_column: str,
                 writer.writerow(['UniProt_ID', 'PDB_ID'])
                 writer.writerows(results)
         except Exception as e:
-            ctx.fail(f"❌ 写入失败: {str(e)}")
+            click.echo(f"❌ 文件读取失败: {str(e)}")
+            return
 
     # 输出统计报告
     click.echo("\n📊 执行报告:")
@@ -178,4 +185,5 @@ def fetch_pdb_ids(ctx, input_tsv: str, id_column: str,
     click.echo(f"• 输出文件: {output_tsv}")
 
 if __name__ == "__main__":
-    fetch_pdb_ids()
+    cli()
+
