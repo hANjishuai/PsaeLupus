@@ -30,13 +30,14 @@ python pdb_fetcher.py fetch-pdb-ids
 """
 import csv
 import time
-import functools  # 新增导入
+import functools 
 from typing import List, Tuple
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from functools import partial, lru_cache  # 新增导入
+from functools import partial, lru_cache 
 import click
 from tqdm import tqdm
 from rcsbapi.search import search_attributes as attrs
+import requests  # 新增导入
 
 # ================= CLI命令组 =================
 @click.group()
@@ -88,6 +89,46 @@ def process_batch(records: List[dict], id_col: str, pbar) -> List[Tuple[str, str
         time.sleep(float(pbar.delay))  # 动态延迟控制
     
     return results
+
+# ================= 新增验证功能 =================
+def filter_valid_prot_ids(input_file: str, output_file: str, max_workers: int = 8) -> None:
+    """带并发验证的优化版本"""
+    # 读取Prot_id列表
+    with open(input_file, 'r') as f:
+        prot_ids = list({line.strip() for line in f if line.strip()})
+
+    valid_ids = []
+    
+    # 线程安全的验证函数
+    def validate_id(prot_id: str) -> Tuple[str, bool]:
+        url = f"https://files.rcsb.org/download/{prot_id}.pdb"
+        try:
+            response = requests.head(url, timeout=10, allow_redirects=True)
+            return (prot_id, response.ok)
+        except requests.exceptions.RequestException:
+            return (prot_id, False)
+
+    # 并发验证
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = [executor.submit(validate_id, pid) for pid in prot_ids]
+        
+        # 使用tqdm进度条
+        with tqdm(total=len(prot_ids), desc="🔄 验证进度", unit="ID") as pbar:
+            for future in as_completed(futures):
+                prot_id, is_valid = future.result()
+                if is_valid:
+                    valid_ids.append(prot_id)
+                    pbar.set_postfix_str(f"✅ Valid: {prot_id}")
+                else:
+                    pbar.set_postfix_str(f"❌ Invalid: {prot_id}")
+                pbar.update(1)
+
+    # 保存结果
+    with open(output_file, 'w') as f:
+        f.write('\n'.join(sorted(valid_ids)))
+
+    click.echo(f"\n📊 验证完成：原始ID数 {len(prot_ids)} → 有效ID数 {len(valid_ids)}")
+    click.echo(f"💾 结果保存至：{output_file}")
 
 # ================= CLI命令实现 =================
 @cli.command()
@@ -184,6 +225,25 @@ def fetch_pdb_ids(input_tsv: str, id_column: str,
     click.echo(f"• 发现PDB总数: {stats['pdb_count']}")
     click.echo(f"• 输出文件: {output_tsv}")
 
+# valid prot_ids
+@cli.command()
+@click.option("--input-file", required=True, type=click.Path(exists=True),
+             help="待验证的Prot_id列表文件（每行一个ID）")
+@click.option("--output-file", default="valid_prot_ids.txt",
+             help="验证结果输出文件路径")
+@click.option("--threads", default=8, show_default=True,
+             help="并发验证线程数")
+def validate_prot_ids(input_file: str, output_file: str, threads: int):
+    """验证PDB ID有效性（通过HEAD请求检查文件存在性）"""
+    try:
+        filter_valid_prot_ids(
+            input_file=input_file,
+            output_file=output_file,
+            max_workers=threads
+        )
+    except Exception as e:
+        click.echo(f"❌ 验证过程出错: {str(e)}", err=True)
+        
 if __name__ == "__main__":
     cli()
 

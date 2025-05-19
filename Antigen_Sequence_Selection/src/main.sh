@@ -146,13 +146,33 @@ done
 RUN_LOG="PDB_structure_data/run.log"
 for subdir in Skin Cell_type Skin_atlas; do
     TSV_FILE="PDB_structure_data/${subdir}/pdb_mapping.tsv"
-    OUT_LIST="PDB_structure_data/${subdir}/pdb_mapping_IDs.tsv"
+    OUT_LIST="PDB_structure_data/${subdir}/pdb_mapping_IDs.txt"
     awk -F'\t' 'NR>1 && $2 != "" {print $2}' "$TSV_FILE" | tee "$OUT_LIST" | wc -l
     echo "✅ 成功生成PDB列表：$OUT_LIST（共 $(wc -l < "$OUT_LIST") 条）" >> "$RUN_LOG" 2>&1 &
 done
 
+# 验证PDB IDs列的下载网址有效
+RUN_LOG="PDB_structure_data/run.log"
+for subdir in Skin Cell_type Skin_atlas; do
+    TXT_FILE="PDB_structure_data/${subdir}/pdb_mapping_IDs.txt"
+    OUT_DIR="PDB_structure_data/${subdir}/valid_prot_ids.txt"
+    python src/Get_PDB_data.py validate-prot-ids \
+        --input-file "$TXT_FILE"\
+        --output-file "$OUT_DIR"\
+        --threads 8 >> "$RUN_LOG" 2>&1 &
+done
 
-python discotope3/main.py --list_file pdb_list_solved.txt --struc_type solved --out_dir output/pdb_list_solved
+# 进行Discotope3 B细胞表位预测
+conda activate inverse
+for subdir in Skin Cell_type Skin_atlas; do
+    TXT_FILE="~/Downloads/PDB_structure_data/${subdir}/pdb_mapping_IDs.txt"
+    OUT_DIR="~/Downloads/PDB_structure_data/${subdir}/output"
+    nohup python discotope3/main.py \
+        --list_file "$TXT_FILE" \
+        --struc_type solved \
+        --out_dir "$OUT_DIR" &
+done
+
 
 
 
