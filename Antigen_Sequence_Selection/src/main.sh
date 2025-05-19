@@ -132,3 +132,27 @@ for dir in "${target_dirs[@]}"; do
 done
 wait  
 echo "All tasks completed"  
+
+# 自动发现所有包含pdb_mapping.tsv的目录并进行处理,这里是为了能够在Discotope3在线网站上分析
+for subdir in Skin Cell_type Skin_atlas; do
+    python src/split_tsv.py split \
+        --input-tsv "PDB_structure_data/${subdir}/pdb_mapping.tsv" \
+        --output-dir "PDB_structure_data/${subdir}/split_out" \
+        --lines 50 \
+        --threads 1
+done
+
+# 提取pdb_mapping.tsv的pdb IDs列，作为Discotope3本地输入
+RUN_LOG="PDB_structure_data/run.log"
+for subdir in Skin Cell_type Skin_atlas; do
+    TSV_FILE="PDB_structure_data/${subdir}/pdb_mapping.tsv"
+    OUT_LIST="PDB_structure_data/${subdir}/pdb_mapping_IDs.tsv"
+    awk -F'\t' 'NR>1 && $2 != "" {print $2}' "$TSV_FILE" | tee "$OUT_LIST" | wc -l
+    echo "✅ 成功生成PDB列表：$OUT_LIST（共 $(wc -l < "$OUT_LIST") 条）" >> "$RUN_LOG" 2>&1 &
+done
+
+
+python discotope3/main.py --list_file pdb_list_solved.txt --struc_type solved --out_dir output/pdb_list_solved
+
+
+
