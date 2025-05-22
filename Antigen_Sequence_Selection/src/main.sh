@@ -163,9 +163,10 @@ for subdir in Skin Cell_type Skin_atlas; do
 done
 
 # 进行Discotope3 B细胞表位预测
+# 这里是在服务器上进行操作，代码可能有点出入
 conda activate inverse
 for subdir in Skin Cell_type Skin_atlas; do
-    TXT_FILE="~/Downloads/PDB_structure_data/${subdir}/pdb_mapping_IDs.txt"
+    TXT_FILE="~/Downloads/PDB_structure_data/${subdir}/pdb_mapping_IDs.txt" 
     OUT_DIR="~/Downloads/PDB_structure_data/${subdir}/output"
     nohup python discotope3/main.py \
         --list_file "$TXT_FILE" \
@@ -173,6 +174,33 @@ for subdir in Skin Cell_type Skin_atlas; do
         --out_dir "$OUT_DIR" &
 done
 
+# 得到的预测B细胞抗原表位，可视化展示
+RUN_LOG="antigen_Epitopes_Prediction/DiscoTope3/run.log"
+for subdir in Skin Cell_type Skin_atlas; do
+    INPUT_DIR="antigen_Epitopes_Prediction/DiscoTope3/${subdir}/valid_prot_ids"
+    OUT_FILE="antigen_Epitopes_Prediction/DiscoTope3/${subdir}/epitope_ratios.tsv"
+    OUT_image="antigen_Epitopes_Prediction/DiscoTope3/${subdir}/distribution.png"
+    OUT_image_fitted_curve="antigen_Epitopes_Prediction/DiscoTope3/${subdir}/plot_with_fitted.png"
+    
+    # 计算每个抗原的预测抗原表位阳性占比
+    python src/Show_feature_issues.py calculate-ratios \
+    --input-dir "$INPUT_DIR" \
+    --output "$OUT_FILE"\
+    --batch-size 100 \
+    --min-residues 30 >> "$RUN_LOG" 2>&1 
 
+    # 直方图展示抗原表位阳性占比在所有抗原中的分布情况
+    python src/Show_feature_issues.py plot-histogram \
+    --input "$OUT_FILE" \
+    --output "$OUT_image" \
+    --bins 50 \
+    --color lightblue >> "$RUN_LOG" 2>&1 
 
-
+    # 直方图+拟合曲线展示抗原表位阳性占比在所有抗原中的分布情况
+    python src/Show_feature_issues.py enhanced-plot \
+    -i "$OUT_FILE" \
+    -o "$OUT_image_fitted_curve" \
+    --bins 50 \
+    --color lightblue \
+    --curve-color navy >> "$RUN_LOG" 2>&1 
+done
