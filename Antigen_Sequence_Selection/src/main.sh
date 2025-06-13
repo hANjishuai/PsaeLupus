@@ -204,3 +204,18 @@ for subdir in Skin Cell_type Skin_atlas; do
     --color lightblue \
     --curve-color navy >> "$RUN_LOG" 2>&1 
 done
+
+# 获得B细胞抗原表位占比高的基因名以及其meta信息
+RUN_LOG="antigen_Epitopes_Prediction/DiscoTope3/run.log"
+for subdir in Skin Cell_type Skin_atlas; do
+    pdb_mapping="antigen_Epitopes_Prediction/DiscoTope3/${subdir}/pdb_mapping.tsv"
+    proteins_meta="antigen_sequnce/${subdir}/proteins_meta.tsv"
+    epitope_ratios="antigen_Epitopes_Prediction/DiscoTope3/${subdir}/epitope_ratios.tsv"
+    OUT_FILE="antigen_Epitopes_Prediction/DiscoTope3/${subdir}/enhanced_merged_data.tsv"
+
+    python src/Show_feature_issues.py merge-data \
+    --pdb-mapping "$pdb_mapping"\
+    --proteins-meta "$proteins_meta" \
+    --epitope-ratios "$epitope_ratios" \
+    --output "$OUT_FILE"  >> "$RUN_LOG" 2>&1 
+done

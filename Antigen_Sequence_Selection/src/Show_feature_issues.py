@@ -12,7 +12,7 @@ import click
 import functools
 from pathlib import Path
 import matplotlib.pyplot as plt
-from typing import Dict, Generator, Tuple
+from typing import Dict, Generator, Tuple , DefaultDict, Set
 from collections import defaultdict
 
 # ================= 基础架构 =================
@@ -252,7 +252,248 @@ class EnhancedRatioPlotter(RatioHistogramPlotter):
         plt.savefig(self.output, dpi=300)
         plt.close()
 
-
+# ================= 增强数据整合模块 =================
+class EnhancedDataMerger:
+    """整合PDB映射、蛋白元数据和表位比率（保留所有表位数据）"""
+    def __init__(self, pdb_mapping: Path, proteins_meta: Path, epitope_ratios: Path, output: Path):
+        self.pdb_mapping = pdb_mapping
+        self.proteins_meta = proteins_meta
+        self.epitope_ratios = epitope_ratios
+        self.output = output
+        self.timer = Timer()
+        
+    def validate(self):
+        """验证所有输入文件存在"""
+        required_files = [
+            (self.pdb_mapping, "PDB映射文件"),
+            (self.proteins_meta, "蛋白元数据文件"),
+            (self.epitope_ratios, "表位比率文件")
+        ]
+        
+        for path, name in required_files:
+            if not path.exists():
+                raise FileNotFoundError(f"{name}不存在: {path}")
+        self.output.parent.mkdir(parents=True, exist_ok=True)
+    
+    def load_pdb_mapping(self) -> Dict[str, Set[str]]:
+        """加载PDB到UniProt的映射"""
+        mapping = defaultdict(set)
+        with open(self.pdb_mapping, 'r', encoding='utf-8') as f:
+            reader = csv.DictReader(f, delimiter='\t')
+            for row in reader:
+                pdb_id = row['PDB_ID'].strip()
+                uniprot_id = row['UniProt_ID'].strip()
+                if pdb_id and uniprot_id:
+                    mapping[pdb_id].add(uniprot_id)
+        return mapping
+    
+    def load_proteins_meta(self) -> Dict[str, Dict]:
+        """加载蛋白元数据，建立UniProt ID到元数据的映射"""
+        meta = {}
+        with open(self.proteins_meta, 'r', encoding='utf-8') as f:
+            # 处理可能的列名变化
+            fieldnames = next(csv.reader(f, delimiter='\t'))
+            f.seek(0)
+            
+            # 查找Tissue specificity列
+            tissue_col = None
+            for col in fieldnames:
+                if 'Tissue specificity' in col:
+                    tissue_col = col
+                    break
+            
+            reader = csv.DictReader(f, delimiter='\t', fieldnames=fieldnames)
+            next(reader)  # 跳过标题行
+            
+            for row in reader:
+                uniprot_id = row['Entry'].strip()
+                if not uniprot_id:
+                    continue
+                
+                entry_name = row.get('Entry Name', '').strip()
+                tissue_specificity = row.get(tissue_col, '').strip() if tissue_col else ''
+                
+                # 清理PDB字段（可能包含多个PDB ID）
+                pdb_ids = []
+                if 'PDB' in row and row['PDB']:
+                    pdb_list = row['PDB'].split(';')
+                    for pdb in pdb_list:
+                        pdb = pdb.strip()
+                        if pdb:
+                            pdb_ids.append(pdb.split()[0])  # 取PDB ID部分，忽略可能的注释
+                
+                meta[uniprot_id] = {
+                    'Entry_Name': entry_name,
+                    'Tissue_specificity': tissue_specificity,
+                    'PDB_IDs': set(pdb_ids)
+                }
+        return meta
+    
+    def split_entry_name(self, entry_name: str) -> Tuple[str, str]:
+        """拆分Entry Name为Gene和Species"""
+        if entry_name == "NA" or not entry_name:
+            return "NA", "NA"
+        
+        # 查找最后一个下划线的位置
+        last_underscore = entry_name.rfind('_')
+        
+        if last_underscore == -1:
+            # 没有下划线，整个作为gene
+            return entry_name, "UNKNOWN"
+        
+        gene = entry_name[:last_underscore]
+        species = entry_name[last_underscore + 1:]
+        
+        # 清理物种名称（如HUMAN -> Human）
+        species_clean = species.capitalize()
+        if species_clean == "Human":
+            species_clean = "Homo sapiens"
+        elif species_clean == "Mouse":
+            species_clean = "Mus musculus"
+        elif species_clean == "Rat":
+            species_clean = "Rattus norvegicus"
+        
+        return gene, species_clean
+    
+    def merge_data(self):
+        """执行数据整合 - 保留所有epitope_ratios数据"""
+        self.timer.start('overall')
+        
+        # 步骤1: 加载数据
+        self.timer.start('loading_data')
+        pdb_to_uniprot = self.load_pdb_mapping()
+        uniprot_to_meta = self.load_proteins_meta()
+        self.timer.end('loading_data')
+        click.secho(f"📊 加载 {len(pdb_to_uniprot)} 个PDB映射和 {len(uniprot_to_meta)} 个蛋白元数据", fg='blue')
+        
+        # 步骤2: 处理表位比率数据
+        self.timer.start('merging')
+        results = []
+        missing_pdb = set()
+        missing_uniprot = set()
+        found_count = 0
+        
+        with open(self.epitope_ratios, 'r', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            total_rows = sum(1 for _ in reader)  # 获取总行数用于进度显示
+            f.seek(0)
+            next(reader)  # 跳过标题行
+            
+            for i, row in enumerate(reader, 1):
+                antigen = row['Antigen']
+                # 进度显示
+                if i % 100 == 0 or i == total_rows:
+                    click.secho(f"🔄 处理中: {i}/{total_rows} 行 ({i/total_rows:.1%})", fg='cyan')
+                
+                # 解析抗原信息
+                parts = antigen.split('_')
+                pdb_id = parts[0] if parts else ""
+                chain_id = parts[1] if len(parts) > 1 else ""
+                
+                # 准备结果行（保留所有原始数据）
+                result_row = {
+                    'PDB_ID': pdb_id,
+                    'Chain_ID': chain_id,
+                    'Uniprot_ID': "NA",
+                    'Entry_Name': "NA",
+                    'Gene': "NA",
+                    'Species': "NA",
+                    'Tissue_specificity': "NA",
+                    'Total': row['Total'],
+                    'Epitope': row['Epitope'],
+                    'Ratio': row['Ratio'],
+                    'Ratio_float': 0.0  # 用于排序
+                }
+                
+                # 尝试通过PDB映射找到UniProt ID
+                uniprot_ids = pdb_to_uniprot.get(pdb_id, set())
+                found = False
+                
+                for uniprot_id in uniprot_ids:
+                    if uniprot_id in uniprot_to_meta:
+                        meta = uniprot_to_meta[uniprot_id]
+                        result_row['Uniprot_ID'] = uniprot_id
+                        result_row['Entry_Name'] = meta['Entry_Name']
+                        result_row['Tissue_specificity'] = meta['Tissue_specificity']
+                        
+                        # 拆分Entry Name
+                        gene, species = self.split_entry_name(meta['Entry_Name'])
+                        result_row['Gene'] = gene
+                        result_row['Species'] = species
+                        
+                        found = True
+                        found_count += 1
+                        break  # 使用第一个匹配项
+                
+                # 如果通过PDB映射没找到，尝试通过PDB列表查找
+                if not found:
+                    for uniprot_id, meta in uniprot_to_meta.items():
+                        if pdb_id in meta['PDB_IDs']:
+                            result_row['Uniprot_ID'] = uniprot_id
+                            result_row['Entry_Name'] = meta['Entry_Name']
+                            result_row['Tissue_specificity'] = meta['Tissue_specificity']
+                            
+                            # 拆分Entry Name
+                            gene, species = self.split_entry_name(meta['Entry_Name'])
+                            result_row['Gene'] = gene
+                            result_row['Species'] = species
+                            
+                            found = True
+                            found_count += 1
+                            break
+                
+                # 记录缺失信息
+                if not found:
+                    if uniprot_ids:
+                        missing_uniprot.update(uniprot_ids)
+                    elif pdb_id:
+                        missing_pdb.add(pdb_id)
+                
+                # 转换Ratio为浮点数用于排序
+                try:
+                    result_row['Ratio_float'] = float(row['Ratio'])
+                except ValueError:
+                    result_row['Ratio_float'] = 0.0
+                
+                results.append(result_row)
+        
+        self.timer.end('merging')
+        
+        # 步骤3: 按Ratio降序排序
+        self.timer.start('sorting')
+        click.secho("🔢 按Ratio降序排序...", fg='blue')
+        results.sort(key=lambda x: x['Ratio_float'], reverse=True)
+        self.timer.end('sorting')
+        
+        # 步骤4: 写入结果
+        self.timer.start('writing')
+        with open(self.output, 'w', newline='', encoding='utf-8') as f_out:
+            fieldnames = [
+                'PDB_ID', 'Chain_ID', 'Uniprot_ID', 'Gene', 'Species', 
+                'Tissue_specificity', 'Total', 'Epitope', 'Ratio'
+            ]
+            writer = csv.DictWriter(f_out, fieldnames=fieldnames, delimiter='\t')
+            writer.writeheader()
+            
+            for row in results:
+                # 准备最终输出行（移除临时字段）
+                output_row = {k: v for k, v in row.items() if k != 'Ratio_float' and k != 'Entry_Name'}
+                writer.writerow(output_row)
+        
+        # 输出统计信息
+        click.secho(f"✅ 成功整合 {len(results)} 条记录", fg='green')
+        click.secho(f"🔍 匹配到元数据的记录: {found_count} ({found_count/len(results):.1%})", fg='green')
+        click.secho(f"📊 最高Ratio: {results[0]['Ratio']} (PDB: {results[0]['PDB_ID']})", fg='green')
+        click.secho(f"📊 最低Ratio: {results[-1]['Ratio']} (PDB: {results[-1]['PDB_ID']})", fg='green')
+        
+        if missing_pdb:
+            click.secho(f"⚠️ 警告: {len(missing_pdb)} 个PDB ID未找到映射: {', '.join(sorted(missing_pdb)[:5])}{'...' if len(missing_pdb) > 5 else ''}", fg='yellow')
+        if missing_uniprot:
+            click.secho(f"⚠️ 警告: {len(missing_uniprot)} 个UniProt ID未找到元数据: {', '.join(sorted(missing_uniprot)[:5])}{'...' if len(missing_uniprot) > 5 else ''}", fg='yellow')
+        
+        self.timer.end('writing')
+        self.timer.end('overall')
+        
 # ================= CLI命令注册 =================
 class Timer:
     """计时工具"""
@@ -369,6 +610,32 @@ def enhanced_plot(input: Path, output: Path, bins: int, color: str,
     except Exception as e:
         click.secho(f"❌ 生成失败：{str(e)}", fg='red')
 
+# ================= 增强数据整合命令 =================
+@cli.command()
+@click.option("--pdb-mapping", type=Path, required=True,
+             help="PDB到UniProt的映射文件路径 (TSV格式)")
+@click.option("--proteins-meta", type=Path, required=True,
+             help="蛋白元数据文件路径 (TSV格式)")
+@click.option("--epitope-ratios", type=Path, required=True,
+             help="表位比率文件路径 (CSV格式)")
+@click.option("--output", "-o", type=Path, default="enhanced_merged_data.tsv",
+             help="整合数据输出路径 (TSV格式)")
+def merge_data(pdb_mapping: Path, proteins_meta: Path, epitope_ratios: Path, output: Path):
+    """整合PDB映射、蛋白元数据和表位比率数据（保留所有表位数据）"""
+    merger = EnhancedDataMerger(
+        pdb_mapping=pdb_mapping,
+        proteins_meta=proteins_meta,
+        epitope_ratios=epitope_ratios,
+        output=output
+    )
+    
+    try:
+        merger.validate()
+        click.secho("🔄 开始整合数据...", fg='green')
+        merger.merge_data()
+        click.secho(f"✅ 整合完成！结果保存至 {output}", fg='green', bold=True)
+    except Exception as e:
+        click.secho(f"❌ 错误: {str(e)}", fg='red')
 
 if __name__ == "__main__":
     cli()
