@@ -219,3 +219,33 @@ for subdir in Skin Cell_type Skin_atlas; do
     --epitope-ratios "$epitope_ratios" \
     --output "$OUT_FILE"  >> "$RUN_LOG" 2>&1 
 done
+
+# 获得最容易产生B细胞表位的基因
+# Ratio = 0.1
+RUN_LOG="antigen_Epitopes_Prediction/DiscoTope3/run.log"
+for subdir in Skin Cell_type Skin_atlas; do
+    INPUT_FILE="antigen_Epitopes_Prediction/DiscoTope3/${subdir}/enhanced_merged_data.tsv"
+    OUTPUT_FILE="antigen_Epitopes_Prediction/DiscoTope3/${subdir}/antigen_treemap_0.1.pdf"
+
+    python src/Show_feature_issues.py plot-treemap \
+    -i "$INPUT_FILE" \
+    -o "$OUTPUT_FILE" \
+    --species "Homo sapiens" \
+    --format pdf \
+    --min-ratio 0.1 >> "$RUN_LOG" 2>&1
+done
+
+# Ratio = 0.3
+RUN_LOG="antigen_Epitopes_Prediction/DiscoTope3/run.log"
+for subdir in Skin Cell_type Skin_atlas; do
+    INPUT_FILE="antigen_Epitopes_Prediction/DiscoTope3/${subdir}/enhanced_merged_data.tsv"
+    OUTPUT_FILE="antigen_Epitopes_Prediction/DiscoTope3/${subdir}/antigen_treemap_0.3.pdf"
+
+    python src/Show_feature_issues.py plot-treemap \
+    -i "$INPUT_FILE" \
+    -o "$OUTPUT_FILE" \
+    --species "Homo sapiens" \
+    --format pdf \
+    --min-ratio 0.3 >> "$RUN_LOG" 2>&1
+done
+

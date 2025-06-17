@@ -6,14 +6,20 @@ calculate-ratios : 分块计算表位比率
 
 """
 
+import sys
+import re
 import csv
 import time
 import click
 import functools
 from pathlib import Path
 import matplotlib.pyplot as plt
-from typing import Dict, Generator, Tuple , DefaultDict, Set
+from typing import Dict, Generator, Tuple , DefaultDict, Set , List , Optional
 from collections import defaultdict
+import pandas as pd
+import plotly.express as px
+import plotly.io as pio
+
 
 # ================= 基础架构 =================
 class BaseCommand:
@@ -494,6 +500,178 @@ class EnhancedDataMerger:
         self.timer.end('writing')
         self.timer.end('overall')
         
+# ================= 增强版TreeMap可视化工具 =================
+class TreeMapVisualizer:
+    """TreeMap可视化工具 - 确保正确渲染矩形"""
+    def __init__(self, input_file: Path, output_file: Path, 
+                species_filter: Optional[str] = None, 
+                min_ratio: float = 0.0,
+                output_format: str = "png"):
+        self.input_file = input_file
+        self.output_file = output_file
+        self.species_filter = species_filter
+        self.min_ratio = min_ratio
+        self.output_format = output_format.lower()
+    
+    def validate(self):
+        """验证输入文件"""
+        if not self.input_file.exists():
+            raise FileNotFoundError(f"输入文件不存在: {self.input_file}")
+        
+        valid_formats = ["png", "svg", "jpg", "jpeg", "pdf"]
+        if self.output_format not in valid_formats:
+            raise ValueError(f"无效输出格式: {self.output_format}. 支持的格式: {', '.join(valid_formats)}")
+        
+        self.output_file.parent.mkdir(parents=True, exist_ok=True)
+    
+    def load_and_filter_data(self) -> pd.DataFrame:
+        """加载并过滤数据"""
+        click.secho(f"📂 加载数据: {self.input_file}", fg='blue')
+        df = pd.read_csv(self.input_file, sep='\t')
+        
+        # 基本数据验证
+        required_columns = ['PDB_ID', 'Chain_ID', 'Gene', 'Species', 'Ratio']
+        missing = [col for col in required_columns if col not in df.columns]
+        if missing:
+            raise ValueError(f"输入文件缺少必要列: {', '.join(missing)}")
+        
+        # 转换比率列为数值类型
+        df['Ratio'] = pd.to_numeric(df['Ratio'], errors='coerce')
+        df.dropna(subset=['Ratio'], inplace=True)
+        
+        # 应用过滤器
+        initial_count = len(df)
+        
+        if self.species_filter:
+            click.secho(f"🔍 应用物种过滤: {self.species_filter}", fg='cyan')
+            df = df[df['Species'].str.contains(self.species_filter, case=False, na=False)]
+        
+        if self.min_ratio > 0:
+            click.secho(f"🔍 应用最小比率过滤: ≥{self.min_ratio:.2f}", fg='cyan')
+            df = df[df['Ratio'] >= self.min_ratio]
+        
+        filtered_count = len(df)
+        click.secho(f"✅ 成功加载 {initial_count} 条记录", fg='green')
+        click.secho(f"🔍 过滤后保留 {filtered_count} 条记录 ({filtered_count/initial_count:.1%})", fg='cyan')
+        
+        return df
+    
+    def create_treemap(self, df: pd.DataFrame):
+        """创建TreeMap可视化 - 简化方法确保正确渲染"""
+        # 创建复合ID
+        df['Composite_ID'] = df['PDB_ID'] + '_' + df['Chain_ID']
+        
+        # 创建层级数据
+        df['Gene_PDB'] = df['Gene'] + '|' + df['Composite_ID']
+        
+        # 确保Ratio值大于0
+        df = df[df['Ratio'] > 0]
+        
+        # 创建TreeMap - 使用plotly的简单方法
+        fig = px.treemap(
+            df,
+            path=['Gene', 'Composite_ID'],
+            values='Ratio',
+            color='Gene',
+            color_discrete_sequence=px.colors.qualitative.Dark24,
+            title='B细胞表位预测TreeMap' + 
+                "\n过滤阈值：" + str(self.min_ratio) + 
+                '\n物种：' + self.species_filter,
+            branchvalues='total',
+            hover_name='Composite_ID',
+            hover_data={
+                'PDB_ID': True,
+                'Chain_ID': True,
+                'Ratio': ':.2%',
+                'Species': True
+            },
+            height=1200,
+            width=1600
+        )
+        
+        # 更新布局确保正确渲染
+        fig.update_layout(
+            margin=dict(t=100, l=10, r=10, b=10),
+            font=dict(
+                family="Arial, sans-serif",
+                size=14,
+                color="black"
+            ),
+            paper_bgcolor='white',
+            plot_bgcolor='white',
+            uniformtext=dict(
+                minsize=12,
+                mode='hide'
+            )
+        )
+        
+        # 更新轨迹设置
+        fig.update_traces(
+            textinfo="label+value",
+            texttemplate='<b>%{label}</b><br>%{value:.2%}',
+            textfont=dict(
+                size=14,
+                color='white'
+            ),
+            textposition="middle center",
+            marker_line_color='rgba(0,0,0,0.8)',
+            marker_line_width=1.5,
+            tiling=dict(
+                packing='squarify',
+                pad=10,
+                squarifyratio=1
+            )
+        )
+        
+        return fig
+    
+    def save_output(self, fig):
+        """保存输出文件 - 优化静态导出设置"""
+        # 确保文件扩展名正确
+        output_path = self.output_file.with_suffix(f".{self.output_format}")
+        
+        try:
+            # 静态图片导出
+            if pio.kaleido.scope is None:
+                click.secho("❌ 导出静态图片需要安装kaleido包", fg='red')
+                click.secho("💡 请运行: pip install kaleido", fg='yellow')
+                sys.exit(1)
+            
+            # 设置高分辨率导出
+            pio.kaleido.scope.default_format = self.output_format
+            pio.kaleido.scope.default_width = 2000
+            pio.kaleido.scope.default_height = 1500
+            pio.kaleido.scope.default_scale = 3
+            
+            # 保存图片
+            fig.write_image(output_path, engine="kaleido")
+            click.secho(f"🖼️ {self.output_format.upper()}图片已保存至: {output_path}", fg='green')
+        
+        except Exception as e:
+            click.secho(f"❌ 保存文件失败: {str(e)}", fg='red')
+            if "kaleido" in str(e).lower():
+                click.secho("💡 请确保已安装kaleido: pip install kaleido", fg='yellow')
+            else:
+                import traceback
+                click.secho(traceback.format_exc(), fg='red')
+   
+    def execute(self):
+        """执行可视化流程"""
+        self.validate()
+        df = self.load_and_filter_data()    
+        if df.empty:
+            click.secho("⚠️ 过滤后无数据可显示，请调整过滤条件", fg='yellow')
+            return
+        
+        # 确保有足够的数据点
+        if len(df) < 5:
+            click.secho("⚠️ 数据点过少，无法生成有效的TreeMap", fg='yellow')
+            return
+        
+        # 创建并保存TreeMap
+        fig = self.create_treemap(df)
+        self.save_output(fig)
+
 # ================= CLI命令注册 =================
 class Timer:
     """计时工具"""
@@ -636,6 +814,35 @@ def merge_data(pdb_mapping: Path, proteins_meta: Path, epitope_ratios: Path, out
         click.secho(f"✅ 整合完成！结果保存至 {output}", fg='green', bold=True)
     except Exception as e:
         click.secho(f"❌ 错误: {str(e)}", fg='red')
+        
+# ================= 增强版TreeMap可视化命令 =================
+@cli.command()
+@click.option("--input", "-i", type=Path, required=True,
+             help="整合后的TSV数据文件路径")
+@click.option("--output", "-o", type=Path, default="antigen_treemap.png",
+             help="输出文件路径（默认为PNG格式）")
+@click.option("--species", type=str, default=None,
+             help="按物种过滤（如'Homo sapiens'）")
+@click.option("--min-ratio", type=float, default=0.0,
+             help="最小表位比率阈值（0-1之间）")
+@click.option("--format", "output_format", type=click.Choice(['png', 'svg', 'jpg', 'pdf']),
+             default='png', help="输出文件格式（默认为PNG）")
+def plot_treemap(input: Path, output: Path, species: str, min_ratio: float, output_format: str):
+    """生成抗原表位比率的TreeMap可视化（增强版）"""
+    visualizer = TreeMapVisualizer(
+        input_file=input,
+        output_file=output,
+        species_filter=species,
+        min_ratio=min_ratio,
+        output_format=output_format
+    )
+    
+    try:
+        click.secho("🌳 正在生成TreeMap可视化...", fg='green')
+        visualizer.execute()
+        click.secho(f"✅ 可视化已成功保存至: {output}", fg='green', bold=True)
+    except Exception as e:
+        click.secho(f"❌ 生成TreeMap失败: {str(e)}", fg='red')
 
 if __name__ == "__main__":
     cli()
